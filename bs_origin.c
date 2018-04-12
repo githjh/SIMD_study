@@ -1,5 +1,6 @@
 // Copyright (c) 2007 Intel Corp.
 
+
 // Black-Scholes
 // Analytical method for calculating European Options
 //
