@@ -1,6 +1,5 @@
 // Copyright (c) 2007 Intel Corp.
 
-
 // Black-Scholes
 // Analytical method for calculating European Options
 //
@@ -13,6 +12,7 @@
 #include <math.h>
 #include <string.h>
 #include <sys/time.h>
+#include <emmintrin.h>
 
 #define TIME_DIFF(B,E) ((E.tv_sec - B.tv_sec) + (E.tv_usec - B.tv_usec)*0.000001)
 
@@ -115,6 +115,75 @@ fptype CNDF ( fptype InputX )
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
+fptype BlkSchlsEqEuroNoDiv_SIMD( Out )
+{
+    fptype OptionPrice;
+
+    // local private working variables for the calculation
+    fptype xStockPrice;
+    fptype xStrikePrice;
+    fptype xRiskFreeRate;
+    fptype xVolatility;
+    fptype xTime;
+    fptype xSqrtTime;
+
+    fptype logValues;
+    fptype xLogTerm;
+    fptype xD1; 
+    fptype xD2;
+    fptype xPowerTerm;
+    fptype xDen;
+    fptype d1;
+    fptype d2;
+    fptype FutureValueX;
+    fptype NofXd1;
+    fptype NofXd2;
+    fptype NegNofXd1;
+    fptype NegNofXd2;    
+    
+    xStockPrice = sptprice;
+    xStrikePrice = strike;
+    xRiskFreeRate = rate;
+    xVolatility = volatility;
+
+    xTime = time;
+    xSqrtTime = sqrt(xTime);
+
+    logValues = log( sptprice / strike );
+        
+    xLogTerm = logValues;
+        
+    
+    xPowerTerm = xVolatility * xVolatility;
+    xPowerTerm = xPowerTerm * 0.5;
+        
+    xD1 = xRiskFreeRate + xPowerTerm;
+    xD1 = xD1 * xTime;
+    xD1 = xD1 + xLogTerm;
+
+    xDen = xVolatility * xSqrtTime;
+    xD1 = xD1 / xDen;
+    xD2 = xD1 -  xDen;
+
+    d1 = xD1;
+    d2 = xD2;
+    
+    NofXd1 = CNDF( d1 );
+    NofXd2 = CNDF( d2 );
+
+    FutureValueX = strike * ( exp( -(rate)*(time) ) );        
+    
+    if (otype == 0) {            
+        OptionPrice = (sptprice * NofXd1) - (FutureValueX * NofXd2);
+    } else { 
+        NegNofXd1 = (1.0 - NofXd1);
+        NegNofXd2 = (1.0 - NofXd2);
+        OptionPrice = (FutureValueX * NegNofXd2) - (sptprice * NegNofXd1);
+    }
+    
+    return OptionPrice;
+}
+
 fptype BlkSchlsEqEuroNoDiv( fptype sptprice,
                             fptype strike, fptype rate, fptype volatility,
                             fptype time, int otype )
@@ -196,7 +265,7 @@ int bs_thread() {
     fptype priceDelta;
 
     for (j=0; j<NUM_RUNS; j++) { /* DO NOT swap the outer and the inner loop. This is for experiments. */
-        for (i=0; i<numOptions; i++) {
+        for (i=0; i<numOptions; i = i + 8) {
             /* Calling main function to calculate option value based on 
              * Black & Sholes's equation.
              */
@@ -207,6 +276,7 @@ int bs_thread() {
 					 data[i].otime, 
                                          (data[i].OptionType == 'P') ? 1 : 0 
 					 );
+
             prices[i] = price;
         }
     }
