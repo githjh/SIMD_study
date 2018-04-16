@@ -115,19 +115,20 @@ fptype CNDF ( fptype InputX )
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
-fptype BlkSchlsEqEuroNoDiv_SIMD( Out )
+
+fptype BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
 {
     fptype OptionPrice;
 
     // local private working variables for the calculation
-    fptype xStockPrice;
-    fptype xStrikePrice;
-    fptype xRiskFreeRate;
-    fptype xVolatility;
-    fptype xTime;
-    fptype xSqrtTime;
+    //fptype xStockPrice;
+    //fptype xStrikePrice;
+    //fptype xRiskFreeRate;
+    //fptype xVolatility;
+    //fptype xTime;
+    //fptype xSqrtTime;
 
-    fptype logValues;
+//    fptype logValues;
     fptype xLogTerm;
     fptype xD1; 
     fptype xD2;
@@ -141,6 +142,21 @@ fptype BlkSchlsEqEuroNoDiv_SIMD( Out )
     fptype NegNofXd1;
     fptype NegNofXd2;    
     
+    fptype xStockPrice [4] = {data_list[0].sptprice, data_list[1].sptprice, 
+			      data_list[2].sptprice, data_list[3].sptprice};
+    fptype xStrikePrice [4] = {data_list[0].strike, data_list[1].strike, 
+			      data_list[2].strike, data_list[3].strike};
+    fptype xRiskFreeRate [4] = {data_list[0].rate, data_list[1].rate, 
+			      data_list[2].rate, data_list[3].rate};
+    fptype xVolatility [4] = {data_list[0].volatility, data_list[1].volatility, 
+			      data_list[2].volatility, data_list[3].volatility};
+    fptype xTime [4] = {data_list[0].otime, data_list[1].otime,
+			data_list[2].otime, data_list[3].otime};
+    fptype xSqrtTime [4] = {sqrt(xTime[0]), sqrt(xTime[1]), sqrt(xTime[2]),sqrt(xTime[3])};
+
+    fptype logValues [4] = {log (xStockPrice[0]/xStrikePrice[0]),log (xStockPrice[1]/xStrikePrice[1]),
+                           log (xStockPrice[2]/xStrikePrice[2]),log (xStockPrice[3]/xStrikePrice[3])};
+#if 0
     xStockPrice = sptprice;
     xStrikePrice = strike;
     xRiskFreeRate = rate;
@@ -182,6 +198,8 @@ fptype BlkSchlsEqEuroNoDiv_SIMD( Out )
     }
     
     return OptionPrice;
+#endif
+    return 0;
 }
 
 fptype BlkSchlsEqEuroNoDiv( fptype sptprice,
