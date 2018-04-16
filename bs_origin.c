@@ -13,6 +13,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <emmintrin.h>
+#include <xmmintrin.h>
 
 #define TIME_DIFF(B,E) ((E.tv_sec - B.tv_sec) + (E.tv_usec - B.tv_usec)*0.000001)
 
@@ -160,9 +161,9 @@ __m128 CNDF_SIMD ( __m128 InputX )
     // Compute NPrimeX term common to both four & six decimal accuracy calcs
     __m128 minusHalf, MulTerm;
 
-    MulHalf = _mm_set_psl(-0.5);
+    minusHalf = _mm_set_ps1(-0.5);
     MulTerm = _mm_mul_ps (InputX, InputX);
-    MulTerm = _mm_mul_ps (MulHalf, MulTerm);
+    MulTerm = _mm_mul_ps (minusHalf, MulTerm);
     expValues = _mm_set_ps ( exp (((float *) & MulTerm)[3]),
 			    exp (((float *) & MulTerm) [2]),
 			    exp (((float *) & MulTerm) [1]),
@@ -171,16 +172,16 @@ __m128 CNDF_SIMD ( __m128 InputX )
     //expValues = exp(-0.5f * InputX * InputX);
     //xNPrimeofX = expValues;
 
-    inv_sqrt_Term = _mm_set_psl (inv_sqrt_2xPI);
-    xNPrimeofX = _mm_mul (expValues, inv_sqrt_Term);
+    inv_sqrt_Term = _mm_set_ps1 (inv_sqrt_2xPI);
+    xNPrimeofX = _mm_mul_ps (expValues, inv_sqrt_Term);
 //    xNPrimeofX = xNPrimeofX * inv_sqrt_2xPI;
     
     __m128 Num023;
-    Num023 = _mm_set_psl (0.2316419);
+    Num023 = _mm_set_ps1 (0.2316419);
     xK2 = _mm_mul_ps (Num023, xInput);
     
     __m128 Num10;
-    Num10 = _mm_set_psl (1.0);
+    Num10 = _mm_set_ps1 (1.0);
     xK2 = _mm_add_ps (Num10, xK2);
     xK2 = _mm_div_ps (Num10, xK2);
     //xK2 = 0.2316419 * xInput;  
@@ -198,12 +199,12 @@ __m128 CNDF_SIMD ( __m128 InputX )
     //xK2_5 = xK2_4 * xK2;
     
     __m128 Num031, Num_035, Num178;
-    Num031 = _mm_set_psl (0.319381530);
+    Num031 = _mm_set_ps1 (0.319381530);
     xLocal_1 = _mm_mul_ps( xK2, Num031);
-    Num_035 = _mm_set_psl (-0.356563782);
-    xLocal_2 = _mm_set_ps (xK2_2, Num_035);
-    Num178 = _mm_set_psl (1.781477937);
-    xLocal_3 = _mm_set_ps (xK2_3 ,Num178) ;
+    Num_035 = _mm_set_ps1 (-0.356563782);
+    xLocal_2 = _mm_mul_ps (xK2_2, Num_035);
+    Num178 = _mm_set_ps1 (1.781477937);
+    xLocal_3 = _mm_mul_ps (xK2_3 ,Num178) ;
 
     //xLocal_1 = xK2 * 0.319381530;
     //xLocal_2 = xK2_2 * (-0.356563782);
@@ -212,10 +213,10 @@ __m128 CNDF_SIMD ( __m128 InputX )
     __m128 Num_182, Num133;
 
     xLocal_2 = _mm_add_ps (xLocal_2, xLocal_3);
-    Num_182 = _mm_set_psl (-1.821255978);
+    Num_182 = _mm_set_ps1 (-1.821255978);
     xLocal_3 = _mm_mul_ps (xK2_4,Num_182) ;
     xLocal_2 = _mm_add_ps (xLocal_2, xLocal_3);
-    Num133 = _mm_set_psl (1.330274429);
+    Num133 = _mm_set_ps1 (1.330274429);
     xLocal_3 = _mm_mul_ps(xK2_5, Num133);
     xLocal_2 = _mm_add_ps (xLocal_2, xLocal_3);
 
@@ -253,9 +254,9 @@ __m128 CNDF_SIMD ( __m128 InputX )
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
-fptype BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
+__m128 BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
 {
-    fptype OptionPrice;
+    __m128 OptionPrice;
 
     // local private working variables for the calculation
     //fptype xStockPrice;
@@ -273,32 +274,40 @@ fptype BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
 //    fptype xDen;
 //    fptype d1;
 //    fptype d2;
-    fptype FutureValueX;
-    fptype NofXd1;
-    fptype NofXd2;
-    fptype NegNofXd1;
-    fptype NegNofXd2;    
+    //fptype FutureValueX;
+    //fptype NofXd1;
+    //fptype NofXd2;
+    //fptype NegNofXd1;
+    //fptype NegNofXd2;    
     
-    fptype xStockPrice [4] = {data_list[3].sptprice, data_list[2].sptprice, 
-			      data_list[1].sptprice, data_list[0].sptprice};
-    fptype xStrikePrice [4] = {data_list[3].strike, data_list[2].strike, 
-			      data_list[1].strike, data_list[0].strike};
-    fptype RiskFreeRate [4] = {data_list[3].rate, data_list[2].rate, 
-			      data_list[1].rate, data_list[0].rate};
+    fptype StockPrice [4] = {data_list[0].sptprice, data_list[1].sptprice, 
+			      data_list[2].sptprice, data_list[3].sptprice};
+    __m128 sptprice = _mm_load_ps (StockPrice);
+   // sptprice = _mm_set_ps (data_list[3].sptprice, data_list[2].sptprice, 
+	//		      data_list[1].sptprice, data_list[0].sptprice);
+    fptype StrikePrice [4] = {data_list[0].strike, data_list[1].strike, 
+			      data_list[2].strike, data_list[3].strike};
+    __m128 xStrikePrice = _mm_load_ps (StrikePrice);
+    fptype RiskFreeRate [4] = {data_list[0].rate, data_list[1].rate, 
+			      data_list[2].rate, data_list[3].rate};
     __m128 xRiskFreeRate = _mm_load_ps (RiskFreeRate);
 
-    fptype Volatility [4] = {data_list[3].volatility, data_list[2].volatility, 
-			      data_list[1].volatility, data_list[0].volatility};
+    fptype Volatility [4] = {data_list[0].volatility, data_list[1].volatility, 
+			      data_list[2].volatility, data_list[3].volatility};
     __m128 xVolatility = _mm_load_ps (Volatility);
 
-    fptype Time [4] = {data_list[3].otime, data_list[2].otime,
-			data_list[1].otime, data_list[0].otime};
+    fptype Time [4] = {data_list[0].otime, data_list[1].otime,
+			data_list[2].otime, data_list[3].otime};
     __m128 xTime = _mm_load_ps (Time);
-    fptype SqrtTime [4] = {sqrt(xTime[3]), sqrt(xTime[2]), sqrt(xTime[1]),sqrt(xTime[0])};
-    __mm128 xSqrtTime = _mm_load_ps (SqrtTime);
+    fptype SqrtTime [4] = {sqrt(xTime[0]), sqrt(xTime[1]), sqrt(xTime[2]),sqrt(xTime[3])};
+    __m128 xSqrtTime = _mm_load_ps (SqrtTime);
 
-    fptype logValues [4] = {log (xStockPrice[3]/xStrikePrice[3]),log (xStockPrice[2]/xStrikePrice[2]),
-                           log (xStockPrice[1]/xStrikePrice[1]),log (xStockPrice[0]/xStrikePrice[0])};
+    fptype logValues [4] = {log (StockPrice[0]/StrikePrice[0]),log (StockPrice[1]/StrikePrice[1]),
+                           log (StockPrice[2]/StrikePrice[2]),log (StockPrice[3]/StrikePrice[3])};
+ //   printf("logvalue : %f\n", logValues[3]);
+//    printf("stockprice : %f\n", sptprice[3]);
+//    printf("xStrikePrice : %f\n", xStrikePrice[3]);
+//    printf("xRiskFreeRate : %f\n", xRiskFreeRate[3]);
     __m128 xLogTerm = _mm_load_ps(logValues);
     __m128 xD1;
     __m128 xD2;
@@ -318,7 +327,7 @@ fptype BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
 				  ((data_list[0].OptionType == 'P') ? 1 : 0));
     xPowerTerm = _mm_mul_ps ( xPowerTerm, xhalf);
 
-    xD1 = _mm_add_ps ( xRiskFreeRate, XpowerTerm);
+    xD1 = _mm_add_ps ( xRiskFreeRate, xPowerTerm);
     xD1 = _mm_mul_ps ( xD1, xTime);
     xD1 = _mm_add_ps ( xD1, xLogTerm);
 
@@ -328,10 +337,10 @@ fptype BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
 
     d1 = xD1;
     d2 = xD2;
-
+//    printf ("d1 : %f %f %f %f\n", d1[3],d1[2],d1[1],d1[0]);
     NofXd1 = CNDF_SIMD(d1);
     NofXd2 = CNDF_SIMD(d2);
-    __m128 rt = _mm_mul_ps(rate, time);
+    __m128 rt = _mm_mul_ps(xRiskFreeRate, xTime);
     rt = _mm_mul_ps(rt, _mm_set_ps1(-1));
     float *rtfloat = (float*)&rt;
     __m128 expn = _mm_set_ps ( exp(rtfloat[3]),
@@ -340,7 +349,7 @@ fptype BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
 			       exp(rtfloat[0])
 			       );
 
-    FutureValueX = _mm_mul_ps(strike, expn);
+    FutureValueX = _mm_mul_ps(xStrikePrice, expn);
 
     int i;
     for ( i = 0; i < 4; i++){
@@ -402,7 +411,6 @@ fptype BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
     
     return OptionPrice;
 #endif
-    return 0;
 }
 
 fptype BlkSchlsEqEuroNoDiv( fptype sptprice,
@@ -482,14 +490,15 @@ fptype BlkSchlsEqEuroNoDiv( fptype sptprice,
 //////////////////////////////////////////////////////////////////////////////////////
 int bs_thread() {
     int i, j;
-    fptype price;
+    __m128 price;
     fptype priceDelta;
 
     for (j=0; j<NUM_RUNS; j++) { /* DO NOT swap the outer and the inner loop. This is for experiments. */
-        for (i=0; i<numOptions; i = i + 8) {
+        for (i=0; i<numOptions; i = i + 4) {
             /* Calling main function to calculate option value based on 
              * Black & Sholes's equation.
              */
+	     /*
             price = BlkSchlsEqEuroNoDiv( data[i].sptprice, 
 					 data[i].strike,
                                          data[i].rate,
@@ -499,6 +508,9 @@ int bs_thread() {
 					 );
 
             prices[i] = price;
+	    */
+	    price = BlkSchlsEqEuroNoDiv_SIMD(&data[i]);
+	    _mm_store_ps (&prices[i], price);
         }
     }
 
