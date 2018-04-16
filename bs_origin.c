@@ -111,6 +111,143 @@ fptype CNDF ( fptype InputX )
     return OutputX;
 } 
 
+__m128 CNDF_SIMD ( __m128 InputX ) 
+{
+//    int sign;
+    __m128 sign;
+//    fptype f[4];
+/*
+    fptype OutputX;
+    fptype xInput;
+    fptype xNPrimeofX;
+    fptype expValues;
+    fptype xK2;
+    fptype xK2_2, xK2_3;
+    fptype xK2_4, xK2_5;
+    fptype xLocal, xLocal_1;
+    fptype xLocal_2, xLocal_3;
+*/
+    __m128 OutputX;
+    __m128 xInput;
+    __m128 xNPrimeofX;
+    __m128 expValues;
+    __m128 xK2;
+    __m128 xK2_2, xK2_3;
+    __m128 xK2_4, xK2_5;
+    __m128 xLocal, xLocal_1;
+    __m128 xLocal_2, xLocal_3;
+
+    int i ;
+    for ( i = 0; i< 4; i++){
+	if (((float *)&InputX)[i] < 0.0){
+	    ((float *) & InputX)[i] = - ((float *) &InputX) [i];
+	    ((int *) &sign)[i] = 1;
+	}
+	else
+	    ((int *) & sign)[i] = 0;
+    }
+    xInput = InputX;
+/*
+    // Check for negative value of InputX
+    if (InputX < 0.0) {
+        InputX = -InputX;
+        sign = 1;
+    } else 
+        sign = 0;
+
+    xInput = InputX;
+ */
+    // Compute NPrimeX term common to both four & six decimal accuracy calcs
+    __m128 minusHalf, MulTerm;
+
+    MulHalf = _mm_set_psl(-0.5);
+    MulTerm = _mm_mul_ps (InputX, InputX);
+    MulTerm = _mm_mul_ps (MulHalf, MulTerm);
+    expValues = _mm_set_ps ( exp (((float *) & MulTerm)[3]),
+			    exp (((float *) & MulTerm) [2]),
+			    exp (((float *) & MulTerm) [1]),
+			    exp (((float *) & MulTerm) [0]));
+    __m128 inv_sqrt_Term; 
+    //expValues = exp(-0.5f * InputX * InputX);
+    //xNPrimeofX = expValues;
+
+    inv_sqrt_Term = _mm_set_psl (inv_sqrt_2xPI);
+    xNPrimeofX = _mm_mul (expValues, inv_sqrt_Term);
+//    xNPrimeofX = xNPrimeofX * inv_sqrt_2xPI;
+    
+    __m128 Num023;
+    Num023 = _mm_set_psl (0.2316419);
+    xK2 = _mm_mul_ps (Num023, xInput);
+    
+    __m128 Num10;
+    Num10 = _mm_set_psl (1.0);
+    xK2 = _mm_add_ps (Num10, xK2);
+    xK2 = _mm_div_ps (Num10, xK2);
+    //xK2 = 0.2316419 * xInput;  
+    //xK2 = 1.0 + xK2;
+    //xK2 = 1.0 / xK2;
+    
+    xK2_2 = _mm_mul_ps (xK2, xK2);
+    xK2_3 = _mm_mul_ps (xK2_2, xK2);
+    xK2_4 = _mm_mul_ps (xK2_3, xK2);
+    xK2_5 = _mm_mul_ps (xK2_4, xK2);
+
+    //xK2_2 = xK2 * xK2;
+    //xK2_3 = xK2_2 * xK2;
+    //xK2_4 = xK2_3 * xK2;
+    //xK2_5 = xK2_4 * xK2;
+    
+    __m128 Num031, Num_035, Num178;
+    Num031 = _mm_set_psl (0.319381530);
+    xLocal_1 = _mm_mul_ps( xK2, Num031);
+    Num_035 = _mm_set_psl (-0.356563782);
+    xLocal_2 = _mm_set_ps (xK2_2, Num_035);
+    Num178 = _mm_set_psl (1.781477937);
+    xLocal_3 = _mm_set_ps (xK2_3 ,Num178) ;
+
+    //xLocal_1 = xK2 * 0.319381530;
+    //xLocal_2 = xK2_2 * (-0.356563782);
+    //xLocal_3 = xK2_3 * 1.781477937;
+
+    __m128 Num_182, Num133;
+
+    xLocal_2 = _mm_add_ps (xLocal_2, xLocal_3);
+    Num_182 = _mm_set_psl (-1.821255978);
+    xLocal_3 = _mm_mul_ps (xK2_4,Num_182) ;
+    xLocal_2 = _mm_add_ps (xLocal_2, xLocal_3);
+    Num133 = _mm_set_psl (1.330274429);
+    xLocal_3 = _mm_mul_ps(xK2_5, Num133);
+    xLocal_2 = _mm_add_ps (xLocal_2, xLocal_3);
+
+    //xLocal_2 = xLocal_2 + xLocal_3;
+    //xLocal_3 = xK2_4 * (-1.821255978);
+    //xLocal_2 = xLocal_2 + xLocal_3;
+    //xLocal_3 = xK2_5 * 1.330274429;
+    //xLocal_2 = xLocal_2 + xLocal_3;
+
+    xLocal_1 = _mm_add_ps(xLocal_2, xLocal_1);
+    xLocal   = _mm_mul_ps(xLocal_1, xNPrimeofX);
+    xLocal   = _mm_sub_ps(Num10, xLocal);
+
+//    xLocal_1 = xLocal_2 + xLocal_1;
+//    xLocal   = xLocal_1 * xNPrimeofX;
+//    xLocal   = 1.0 - xLocal;
+
+    OutputX  = xLocal;
+   
+    i = 0;
+    for (i = 0; i< 4; i++){
+	if (((int*)&sign)[i]){
+	    ((float*)&OutputX)[i] = 1.0 - ((float*)&OutputX)[i];
+	}
+    }
+    //if (sign) {
+    //    OutputX = 1.0 - OutputX;
+    //}
+    
+    return OutputX;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
@@ -129,33 +266,99 @@ fptype BlkSchlsEqEuroNoDiv_SIMD( OptionData * data_list )
     //fptype xSqrtTime;
 
 //    fptype logValues;
-    fptype xLogTerm;
-    fptype xD1; 
-    fptype xD2;
-    fptype xPowerTerm;
-    fptype xDen;
-    fptype d1;
-    fptype d2;
+    //fptype xLogTerm;
+//    fptype xD1; 
+//    fptype xD2;
+//    fptype xPowerTerm;
+//    fptype xDen;
+//    fptype d1;
+//    fptype d2;
     fptype FutureValueX;
     fptype NofXd1;
     fptype NofXd2;
     fptype NegNofXd1;
     fptype NegNofXd2;    
     
-    fptype xStockPrice [4] = {data_list[0].sptprice, data_list[1].sptprice, 
-			      data_list[2].sptprice, data_list[3].sptprice};
-    fptype xStrikePrice [4] = {data_list[0].strike, data_list[1].strike, 
-			      data_list[2].strike, data_list[3].strike};
-    fptype xRiskFreeRate [4] = {data_list[0].rate, data_list[1].rate, 
-			      data_list[2].rate, data_list[3].rate};
-    fptype xVolatility [4] = {data_list[0].volatility, data_list[1].volatility, 
-			      data_list[2].volatility, data_list[3].volatility};
-    fptype xTime [4] = {data_list[0].otime, data_list[1].otime,
-			data_list[2].otime, data_list[3].otime};
-    fptype xSqrtTime [4] = {sqrt(xTime[0]), sqrt(xTime[1]), sqrt(xTime[2]),sqrt(xTime[3])};
+    fptype xStockPrice [4] = {data_list[3].sptprice, data_list[2].sptprice, 
+			      data_list[1].sptprice, data_list[0].sptprice};
+    fptype xStrikePrice [4] = {data_list[3].strike, data_list[2].strike, 
+			      data_list[1].strike, data_list[0].strike};
+    fptype RiskFreeRate [4] = {data_list[3].rate, data_list[2].rate, 
+			      data_list[1].rate, data_list[0].rate};
+    __m128 xRiskFreeRate = _mm_load_ps (RiskFreeRate);
 
-    fptype logValues [4] = {log (xStockPrice[0]/xStrikePrice[0]),log (xStockPrice[1]/xStrikePrice[1]),
-                           log (xStockPrice[2]/xStrikePrice[2]),log (xStockPrice[3]/xStrikePrice[3])};
+    fptype Volatility [4] = {data_list[3].volatility, data_list[2].volatility, 
+			      data_list[1].volatility, data_list[0].volatility};
+    __m128 xVolatility = _mm_load_ps (Volatility);
+
+    fptype Time [4] = {data_list[3].otime, data_list[2].otime,
+			data_list[1].otime, data_list[0].otime};
+    __m128 xTime = _mm_load_ps (Time);
+    fptype SqrtTime [4] = {sqrt(xTime[3]), sqrt(xTime[2]), sqrt(xTime[1]),sqrt(xTime[0])};
+    __mm128 xSqrtTime = _mm_load_ps (SqrtTime);
+
+    fptype logValues [4] = {log (xStockPrice[3]/xStrikePrice[3]),log (xStockPrice[2]/xStrikePrice[2]),
+                           log (xStockPrice[1]/xStrikePrice[1]),log (xStockPrice[0]/xStrikePrice[0])};
+    __m128 xLogTerm = _mm_load_ps(logValues);
+    __m128 xD1;
+    __m128 xD2;
+    __m128 xPowerTerm = _mm_mul_ps (xVolatility, xVolatility);
+    __m128 xhalf = _mm_set_ps1 (0.5);
+    __m128 xDen;
+    __m128 d1;
+    __m128 d2;
+    __m128 FutureValueX;
+    __m128 NofXd1;
+    __m128 NofXd2;
+    __m128 NegNofXd1;
+    __m128 NegNofXd2; 
+    __m128i otype = _mm_set_epi32(((data_list[3].OptionType == 'P') ? 1 : 0),
+				  ((data_list[2].OptionType == 'P') ? 1 : 0),
+				  ((data_list[1].OptionType == 'P') ? 1 : 0),
+				  ((data_list[0].OptionType == 'P') ? 1 : 0));
+    xPowerTerm = _mm_mul_ps ( xPowerTerm, xhalf);
+
+    xD1 = _mm_add_ps ( xRiskFreeRate, XpowerTerm);
+    xD1 = _mm_mul_ps ( xD1, xTime);
+    xD1 = _mm_add_ps ( xD1, xLogTerm);
+
+    xDen = _mm_mul_ps (xVolatility , xSqrtTime);
+    xD1 = _mm_div_ps ( xD1, xDen);
+    xD2 = _mm_sub_ps ( xD1, xDen);
+
+    d1 = xD1;
+    d2 = xD2;
+
+    NofXd1 = CNDF_SIMD(d1);
+    NofXd2 = CNDF_SIMD(d2);
+    __m128 rt = _mm_mul_ps(rate, time);
+    rt = _mm_mul_ps(rt, _mm_set_ps1(-1));
+    float *rtfloat = (float*)&rt;
+    __m128 expn = _mm_set_ps ( exp(rtfloat[3]),
+			       exp(rtfloat[2]),
+			       exp(rtfloat[1]),
+			       exp(rtfloat[0])
+			       );
+
+    FutureValueX = _mm_mul_ps(strike, expn);
+
+    int i;
+    for ( i = 0; i < 4; i++){
+      if (((int*)&otype)[i] == 0) {  
+	//printf("%ith otype is C\n", i);
+	((float*)&OptionPrice)[i] = (((float*)&sptprice)[i] *((float*)&NofXd1)[i]) - (((float*)&FutureValueX)[i] * ((float*)&NofXd2)[i]);
+      }
+      else { 
+	//printf("%ith otype is P\n", i);
+	((float*)&NegNofXd1)[i] = (1.0 - ((float*)&NofXd1)[i]);
+	((float*)&NegNofXd2)[i] = (1.0 - ((float*)&NofXd2)[i]);
+	((float*)&OptionPrice)[i] = (((float*)&FutureValueX)[i] * ((float*)&NegNofXd2)[i]) - (((float*)&sptprice)[i] * ((float*)&NegNofXd1)[i]);
+      }
+    }
+    
+    
+    return OptionPrice;
+
 #if 0
     xStockPrice = sptprice;
     xStrikePrice = strike;
